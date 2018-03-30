@@ -14,12 +14,8 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the README file
-try:
-    import pypandoc
-    long_description = pypandoc.convert('README.md', 'rst')
-except (IOError, ImportError):
-    with open(path.join(here, 'README.md'), encoding='utf-8') as f:
-        long_description = f.read()
+with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='panbuild',
@@ -91,15 +87,12 @@ setup(
             'panbuild = panbuild:main',
         ],
     },
-    
-    
     # List run-time dependencies here.  These will be installed by pip when
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        'pyyaml>=3.0',
-        'pypandoc>=1.4'
+        'pyyaml>=3.0'
     ],
 
     # List additional groups of dependencies here (e.g. development
