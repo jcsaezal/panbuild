@@ -29,7 +29,7 @@ import sys
 import re
 import os
 import io
-import getopt
+import argparse
 from subprocess import Popen, PIPE, call
 
 # shutil.which: new in version 3.3
@@ -221,15 +221,6 @@ class Target:
 
 		self.pandoc_command=cmd
 		return cmd
-
-### MAIN PROGRAM
-def usage(help):
-	print("Usage: %s [ -f <build_file> | -h | -L | -o | -v | -d <pandoc-dir> ]" % sys.argv[0])
-
-	if not help:
-		sys.exit(1)
-	else:
-		sys.exit(0)  
 
 
 ## Only if dual enabled
@@ -555,38 +546,17 @@ def run_pandoc(cmd,ignoreErrors=False,verbose=False):
     return exitcode
 
 def main():
-	try:
-		opts, args = getopt.getopt(sys.argv[1:], "f:hLodv", ["build-file","help","list-targets","list-output-files","pandoc-dir","verbose"])
-	except getopt.GetoptError as err:
-		# print help information and exit:
-		print(str(err)) # will print something like "option -a not recognized"
-		usage(False)
-		sys.exit(2)
+	## Prepare parser
+	parser = argparse.ArgumentParser(description='Panbuild, a YAML-based builder for Pandoc')
+	parser.add_argument("-f","--build-file",default="build.yaml",nargs=1,help='Indicates which file contains the build rules. If omitted, panbuild searches for rules in "build.yaml"')
+	parser.add_argument("-L","--list-targets",action='store_true',help="List targets found in build file")
+	parser.add_argument("-o","--list-output",action='store_true',help="List the name of the output file for each target")
+	parser.add_argument("-v","--verbose",action='store_true',help="Enable verbose mode")
+	parser.add_argument("-d","--pandoc-dir",nargs=1,help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
+	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
+	args=parser.parse_args(sys.argv[1:])
 
-	pandoc_dir=None
-	infile="build.yaml"
-	verbose=False
-	list_targets=False 
-	list_output=False
-	csv_mode=False
-	for o, arg in opts:
-		if o in ("-h", "--help"):
-			usage(True)
-			sys.exit()
-		elif o in ("-f", "--build-file"):
-			infile=arg 
-		elif o in ("-L", "--list-targets"):
-			list_targets=True        	
-		elif o in ("-o", "--list-output-files"):
-			list_output=True  
-		elif o in ("-v", "--verbose"):
-			verbose=True        	
-		elif o in ("-d", "--pandoc-dir"):
-			pandoc_dir=arg        	       	
-		else:
-			assert False, "unhandled option"
-
-	ret=parse_file(infile,pandoc_dir)
+	ret=parse_file(args.build_file,args.pandoc_dir)
 
 	if not ret:
 		sys.exit(2)
@@ -595,18 +565,18 @@ def main():
 	(yaml_data,targets)=ret
 
 	## Print targets
-	if list_targets or list_output:
+	if args.list_targets or args.list_output:
 		for target in targets:
-			if verbose:
+			if args.verbose:
 				print(target.subname+": "+' '.join(map(str,target.pandoc_command)))
-			elif list_output:
+			elif args.list_output:
 				print(target.subname+": "+target.outfile)
 			else:
 				print(target.subname)
 		sys.exit(0)
 
 	## Built-in clean target
-	if "clean" in args:
+	if "clean" in args.targets:
 		for target in targets:
 			if target.outfile:
 				try:
@@ -618,14 +588,14 @@ def main():
 
 	## Invoke pandoc
 	for target in targets:
-		if len(args)==0 or target.subname in args:
-			if verbose:
+		if len(args.targets)==0 or target.subname in args.targets:
+			if args.verbose:
 				print("Building target %s" % target.subname)
 				print("Command:",' '.join(map(str,target.pandoc_command)))
 			else:
 				print("Building target %s ..." % target.subname,end="")
 				sys.stdout.flush()
-			errcode=run_pandoc(target.pandoc_command,False,verbose)
+			errcode=run_pandoc(target.pandoc_command,False,args.verbose)
 			if errcode==0:
 				print("Success")
 			else:
