@@ -586,21 +586,30 @@ def main():
 					pass
 		sys.exit(0)
 
-	## Invoke pandoc
-	for target in targets:
-		if len(args.targets)==0 or target.subname in args.targets:
-			if args.verbose:
-				print("Building target %s" % target.subname)
-				print("Command:",' '.join(map(str,target.pandoc_command)))
-			else:
-				print("Building target %s ..." % target.subname,end="")
-				sys.stdout.flush()
-			errcode=run_pandoc(target.pandoc_command,False,args.verbose)
-			if errcode==0:
-				print("Success")
-			else:
-				print("Failed")
-					#print output	
+	## Check if user-provided targets are valid
+	selected_targets=[]
+
+	for target_name in args.targets:
+		res=filter(lambda x: x.subname == target_name, targets)	
+		if not res or res==[]:
+			print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
+			sys.exit(3)
+		else:
+			selected_targets.append(res[0])
+
+	## Invoke pandoc for selected targets
+	for target in selected_targets:
+		if args.verbose:
+			print("Building target %s" % target.subname)
+			print("Command:",' '.join(map(str,target.pandoc_command)))
+		else:
+			print("Building target %s ..." % target.subname,end="")
+			sys.stdout.flush()
+		errcode=run_pandoc(target.pandoc_command,False,args.verbose)
+		if errcode==0:
+			print("Success")
+		else:
+			print("Failed")
 	sys.exit(0)
 
 
