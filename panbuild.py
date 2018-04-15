@@ -96,6 +96,7 @@ class Target:
 	def __str__(self):
 		return "=====%s====\nName=%s\nOptions=%s\nFilters=%s\nVariables=%s\nInput files=%s\n==========\n" % (self.name,self.subname,str(self.options),str(self.filters),str(self.variables),str(self.input_files))
 
+	
 	def build_command(self,add_dual_filters=False,dual_filters_dir=None,pandoc_dir=None):
 		actual_output_file=None
 		actual_extension=None
@@ -519,6 +520,107 @@ def parse_file(infile,pandoc_dir):
 
 	return (data,targets)
 
+
+def parse_option(tokens,short=True):
+	if short:
+		option_name=tokens[0][1:]
+	else:
+		option_name=tokens[0][2:]
+	tokens.pop(0)
+
+	if len(tokens)==0 or tokens[0].startswith("-"):
+		return (option_name,None)
+	else:
+		value=tokens.pop(0)
+		return (option_name,value)
+
+# Returns a pair (infiles, dictionary of options)
+# Each option has a key and value
+# key is always a string
+# value can be either a string or a list of strings (option specified multiple times in there)
+def parse_pandoc_options(args_str):
+	input_files=[]
+	options={}
+
+	## Lexer ...
+	tokens=args_str.replace('=',' ').split()
+
+	## Option processing
+	while len(tokens)>0:
+		lookahead=tokens[0]
+		if lookahead.startswith("--"):
+			(key,val)=parse_option(tokens,False)
+		elif lookahead.startswith("-"):
+			(key,val)=parse_option(tokens,True)
+		else:	
+			input_files.append(lookahead)
+			tokens.pop(0)
+			continue	
+
+		if key in options:
+			oldval=options[key]
+			if oldval is list:
+				oldval.append(val)
+			else:
+				options[key]=[oldval,val]
+		else:
+			options[key]=val
+
+	return (input_files,options)
+
+
+def make_list(obj):
+	if type(obj) is str:
+		return [obj]
+	else:
+		return obj	
+
+def print_sample_build_yaml(args_str):
+	(input_files,options)=parse_pandoc_options(args_str)
+	yaml_dict={}
+	pandoc_common={}
+	filters=None
+	target=None
+	skip_list=['F','filter']
+
+	if input_files!=[]:
+		pandoc_common['input_files']=input_files
+
+	if "F" in options:
+		pandoc_common['filters']=make_list(options['F'])
+	elif "filter" in options:
+		pandoc_common['filters']=make_list(options['filter'])
+	
+	## Dict not empty
+	if pandoc_common:
+		yaml_dict['pandoc_common']=pandoc_common
+
+	if "t" in options:
+		target=options["t"]
+	elif "to" in options:
+		target=options["to"]
+
+	if not target:
+		print("Target not found in pandoc command", file=sys.stderr)
+		sys.exit(2)
+
+	if (type(target) is not str):
+		print("Error: Multiple targets found in pandoc command: ",target, file=sys.stderr)
+		sys.exit(2)
+
+
+	option_dict={}
+	yaml_dict['pandoc_targets']={target.upper():{"options":option_dict}}
+
+	for option, value in iter(options.items()):  
+		if option in skip_list:
+			continue
+
+		option_dict[option]=value
+
+	print(yaml.dump(yaml_dict,default_flow_style=False))
+
+
 def run_pandoc(cmd,ignoreErrors=False,verbose=False):
     """
     Low level function to invoke Pandoc 
@@ -553,8 +655,15 @@ def main():
 	parser.add_argument("-o","--list-output",action='store_true',help="List the name of the output file for each target")
 	parser.add_argument("-v","--verbose",action='store_true',help="Enable verbose mode")
 	parser.add_argument("-d","--pandoc-dir",help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
+	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
+
+
+	## Generate sample
+	if args.sample_build_file:
+		print_sample_build_yaml(args.sample_build_file)
+		sys.exit(0)
 
 	ret=parse_file(args.build_file,args.pandoc_dir)
 
