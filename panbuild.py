@@ -548,11 +548,11 @@ def run_pandoc(cmd,ignoreErrors=False,verbose=False):
 def main():
 	## Prepare parser
 	parser = argparse.ArgumentParser(description='Panbuild, a YAML-based builder for Pandoc')
-	parser.add_argument("-f","--build-file",default="build.yaml",nargs=1,help='Indicates which file contains the build rules. If omitted, panbuild searches for rules in "build.yaml"')
+	parser.add_argument("-f","--build-file",default="build.yaml",help='Indicates which file contains the build rules. If omitted, panbuild searches for rules in "build.yaml"')
 	parser.add_argument("-L","--list-targets",action='store_true',help="List targets found in build file")
 	parser.add_argument("-o","--list-output",action='store_true',help="List the name of the output file for each target")
 	parser.add_argument("-v","--verbose",action='store_true',help="Enable verbose mode")
-	parser.add_argument("-d","--pandoc-dir",nargs=1,help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
+	parser.add_argument("-d","--pandoc-dir",help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
 
