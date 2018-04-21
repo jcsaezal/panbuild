@@ -48,6 +48,40 @@ def get_filter_path(dir,name):
 	else:
 		return name
 
+
+## Special merge functions to support multiple definitions
+## of the same option
+def merge_option_dicts(to,src):
+	# Traverse items in the new (child) option dict
+	for key, value in iter(src.items()):
+		## key found in parent structure?
+		if key in to:
+			oldval=to[key]
+			## Multiple values for this option still exist
+			if type(oldval)==list:
+				## Child value is also a list
+				if type(value)==list:
+					oldval.extend(value)
+				else:
+					oldval.append(value)
+			else:
+				if type(value)==list:
+					newval=[oldval] ## Scalar
+					newval.extend(value)
+					to[key]=newval
+				else:
+					to[key]=[oldval,value]
+		else:
+			# Single value no matter what
+			to[key]=value	
+
+
+def merge_two_option_dicts(x, y):
+    """Given two dicts, merge them into a new dict as a shallow copy."""
+    z = x.copy()
+    merge_option_dicts(z,y)
+    return z
+
 def merge_two_dicts(x, y):
     """Given two dicts, merge them into a new dict as a shallow copy."""
     z = x.copy()
@@ -81,7 +115,7 @@ class Target:
 			self.subname="%s/%s" % (parent.subname,name)
 			self.variables=merge_two_dicts(parent.variables,variables)
 			self.metadata=merge_two_dicts(parent.metadata,metadata)
-			self.options=merge_two_dicts(parent.options,options)
+			self.options=merge_two_option_dicts(parent.options,options)
 			self.filters=parent.filters+filters
 
 		else:
@@ -125,44 +159,58 @@ class Target:
 			actual_extension="pdf" 
 
 		## Add options and keep track of "output"
-		for option, value in iter(self.options.items()):
+		for option, val in iter(self.options.items()):
+			## Turn into list to simplify processing
+			if type(val)!=list:
+				values=[val]
+			else:
+				values=val
 			if option in ("output","o"):
-				actual_output_file=value
+				actual_output_file=values[0] ## Do not allow multiple -o options
 				self.outfile=actual_output_file
-				if not value:
-					print("Invalid output file for target", self.name)
+				if not values[0]:
+					print("Error: Invalid output file for target", self.name, file=sys.stderr)
 					return 
+				elif len(values)>1:
+					print("Error: Multiple output files detected in command for target", self.name, file=sys.stderr)
+					return 					
 				else:
 					continue ## Add option at the end
 			else:
 				## Special case of output format
 				if option in ("to","t"):
-					if standalone and value in output_table_standalone:
-						actual_extension=output_table_standalone[value]
-					elif not standalone and value in output_table_regular:
-						actual_extension=output_table_regular[value]
+					## Do not allow multiple -t options
+					if standalone and values[0] in output_table_standalone:
+						actual_extension=output_table_standalone[values[0]]
+					elif not standalone and values[0] in output_table_regular:
+						actual_extension=output_table_regular[values[0]]
 					else:
-						actual_extension=value
+						actual_extension=values[0]
 					
-					if not value:
-						print("Invalid extension or target", self.name)
+					if not values[0]:
+						print("Error: Invalid extension for target", self.name, file=sys.stderr)
 						return 
+					elif len(values)>1:
+						print("Error: Multiple values for --to or -t options for target", self.name, file=sys.stderr)
+						return 	
 
 				## Just append option and value
 				if len(option)==1:
-					if value:
-						## Short option
-						cmd.append("-%s" % option)
-						cmd.append(value)
-					else:
-						cmd.append("-%s" % option)	
+					for item in values:
+						if item:
+							## Short option
+							cmd.append("-%s" % option)
+							cmd.append(item)
+						else:
+							cmd.append("-%s" % option)	
 				else:
-					## Long option
-					if value:
-						## Short option
-						cmd.append("--%s=%s" % (option,value))
-					else:
-						cmd.append("--%s" % option)	
+					for item in values:
+						## Long option
+						if item:
+							## Short option
+							cmd.append("--%s=%s" % (option,item))
+						else:
+							cmd.append("--%s" % option)	
 
 
 		## Process filters
@@ -241,7 +289,54 @@ def get_lang_vars(yaml_vars):
 		lang_dict["lang2"]=yaml_vars["lang2"]
 
 	return lang_dict
-	
+
+
+def parse_option(tokens,short=True):
+	if short:
+		option_name=tokens[0][1:]
+	else:
+		option_name=tokens[0][2:]
+	tokens.pop(0)
+
+	if len(tokens)==0 or tokens[0].startswith("-"):
+		return (option_name,None)
+	else:
+		value=tokens.pop(0)
+		return (option_name,value)
+
+# Returns a pair (infiles, dictionary of options)
+# Each option has a key and value
+# key is always a string
+# value can be either a string or a list of strings (option specified multiple times in there)
+def parse_pandoc_options(args_str):
+	input_files=[]
+	options={}
+
+	## Lexer ...
+	tokens=args_str.replace('=',' ').split()
+
+	## Option processing
+	while len(tokens)>0:
+		lookahead=tokens[0]
+		if lookahead.startswith("--"):
+			(key,val)=parse_option(tokens,False)
+		elif lookahead.startswith("-"):
+			(key,val)=parse_option(tokens,True)
+		else:	
+			input_files.append(lookahead)
+			tokens.pop(0)
+			continue	
+
+		if key in options:
+			oldval=options[key]
+			if oldval is list:
+				oldval.append(val)
+			else:
+				options[key]=[oldval,val]
+		else:
+			options[key]=val
+
+	return (input_files,options)	
 
 ## Returns a list of targets (Process recursively)
 ## Pass root of the tree to copy stuff
@@ -277,11 +372,16 @@ def parse_target(data,name,parent,level,dual_dict):
 	## Process options within the target
 	for option, value in iter(data.items()):
 		if option=="options":
-			if type(value) !=dict:
+			if type(value)==str:
+				(infiles,opts)=parse_pandoc_options(value)
+				## Merge
+				merge_option_dicts(options,opts)
+			elif type(value)==dict:
+				## Merge
+				merge_option_dicts(options,opts)
+			else:
 				print("Illegal format for options attribute in target %s ...: " % actual_name, file=sys.stderr)
-				return None
-			## Merge			
-			options.update(value)
+				return None			
 		elif option=="variables":
 			if type(value) !=dict:
 				print("Illegal format for variables attribute in target %s ...: " % actual_name, file=sys.stderr)	
@@ -520,68 +620,24 @@ def parse_file(infile,pandoc_dir):
 
 	return (data,targets)
 
-
-def parse_option(tokens,short=True):
-	if short:
-		option_name=tokens[0][1:]
-	else:
-		option_name=tokens[0][2:]
-	tokens.pop(0)
-
-	if len(tokens)==0 or tokens[0].startswith("-"):
-		return (option_name,None)
-	else:
-		value=tokens.pop(0)
-		return (option_name,value)
-
-# Returns a pair (infiles, dictionary of options)
-# Each option has a key and value
-# key is always a string
-# value can be either a string or a list of strings (option specified multiple times in there)
-def parse_pandoc_options(args_str):
-	input_files=[]
-	options={}
-
-	## Lexer ...
-	tokens=args_str.replace('=',' ').split()
-
-	## Option processing
-	while len(tokens)>0:
-		lookahead=tokens[0]
-		if lookahead.startswith("--"):
-			(key,val)=parse_option(tokens,False)
-		elif lookahead.startswith("-"):
-			(key,val)=parse_option(tokens,True)
-		else:	
-			input_files.append(lookahead)
-			tokens.pop(0)
-			continue	
-
-		if key in options:
-			oldval=options[key]
-			if oldval is list:
-				oldval.append(val)
-			else:
-				options[key]=[oldval,val]
-		else:
-			options[key]=val
-
-	return (input_files,options)
-
-
 def make_list(obj):
 	if type(obj) is str:
 		return [obj]
 	else:
 		return obj	
 
-def print_sample_build_yaml(args_str):
+def print_sample_build_yaml(args_str,options_in_yaml=False):
 	(input_files,options)=parse_pandoc_options(args_str)
 	yaml_dict={}
 	pandoc_common={}
 	filters=None
 	target=None
 	skip_list=['F','filter']
+
+	idx_opt=args_str.find('-')
+	if idx_opt==-1:
+		print("No options found in pandoc command", file=sys.stderr)
+		sys.exit(2)		
 
 	if input_files!=[]:
 		pandoc_common['input_files']=input_files
@@ -609,16 +665,20 @@ def print_sample_build_yaml(args_str):
 		sys.exit(2)
 
 
-	option_dict={}
-	yaml_dict['pandoc_targets']={target.upper():{"options":option_dict}}
+	if not options_in_yaml:
+		#find first "-" in option string
+		yaml_dict['pandoc_targets']={target.upper():{"options":args_str[idx_opt:]}}
+	else:
+		option_dict={}
+		yaml_dict['pandoc_targets']={target.upper():{"options":option_dict}}
 
-	for option, value in iter(options.items()):  
-		if option in skip_list:
-			continue
+		for option, value in iter(options.items()):  
+			if option in skip_list:
+				continue
 
-		option_dict[option]=value
+			option_dict[option]=value
 
-	print(yaml.dump(yaml_dict,default_flow_style=False))
+	print(yaml.dump(yaml_dict,default_flow_style=False),end="")
 
 
 def run_pandoc(cmd,ignoreErrors=False,verbose=False):
@@ -656,13 +716,14 @@ def main():
 	parser.add_argument("-v","--verbose",action='store_true',help="Enable verbose mode")
 	parser.add_argument("-d","--pandoc-dir",help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
 	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
+	parser.add_argument("-y","--use-yaml-options",action='store_true',help="Show options in YAML format when generating sample build file")	
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
 
 
 	## Generate sample
 	if args.sample_build_file:
-		print_sample_build_yaml(args.sample_build_file)
+		print_sample_build_yaml(args.sample_build_file,args.use_yaml_options)
 		sys.exit(0)
 
 	ret=parse_file(args.build_file,args.pandoc_dir)
