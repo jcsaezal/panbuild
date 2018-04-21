@@ -100,8 +100,8 @@ class Target:
 	def build_command(self,add_dual_filters=False,dual_filters_dir=None,pandoc_dir=None):
 		actual_output_file=None
 		actual_extension=None
-		output_table_standalone={"latex":"pdf","beamer":"pdf"}
-		output_table_regular={"latex":"tex","beamer":"tex"}
+		output_table_standalone={"latex":"pdf","beamer":"pdf","plain":"txt"}
+		output_table_regular={"latex":"tex","beamer":"tex","plain":"txt"}
 		standalone=False
 
 		if not self.input_files or len(self.input_files)==0:
@@ -698,13 +698,16 @@ def main():
 	## Check if user-provided targets are valid
 	selected_targets=[]
 
-	for target_name in args.targets:
-		res=filter(lambda x: x.subname == target_name, targets)	
-		if not res or res==[]:
-			print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
-			sys.exit(3)
-		else:
-			selected_targets.append(res[0])
+	if len(args.targets)==0:
+		selected_targets=targets
+	else:
+		for target_name in args.targets:
+			res=filter(lambda x: x.subname == target_name, targets)	
+			if not res or res==[]:
+				print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
+				sys.exit(3)
+			else:
+				selected_targets.append(res[0])
 
 	## Invoke pandoc for selected targets
 	for target in selected_targets:
