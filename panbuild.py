@@ -378,7 +378,7 @@ def parse_target(data,name,parent,level,dual_dict):
 				merge_option_dicts(options,opts)
 			elif type(value)==dict:
 				## Merge
-				merge_option_dicts(options,opts)
+				merge_option_dicts(options,value)
 			else:
 				print("Illegal format for options attribute in target %s ...: " % actual_name, file=sys.stderr)
 				return None			
