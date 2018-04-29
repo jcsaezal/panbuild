@@ -24,7 +24,6 @@ To upgrade to the most recent release, proceed as follows:
 
     pip install --upgrade git+https://github.com/jcsaezal/panbuild
 
-
 ### Installation without `git` 
 
 If the one-command installation shown above does not work (i.e. `git` is not installed on your system) you can follow this two-step process:
@@ -49,7 +48,7 @@ $ panbuild
 [Errno 2] No such file or directory: 'build.yaml'
 ```
 
-Otherwise, Panbuild will retrieve the _targets_ found in the build file (one for each target document we want to generate) as well as the pandoc commands required to build those targets. Once this is done it will invoke these commands sequentially, as in the following example, where three targets were found in the build file:
+Otherwise, Panbuild will retrieve the _targets_ found in the build file (one for each target document we want to generate) as well as the pandoc commands required to build those targets. Once this is done, it will invoke these commands sequentially, as in the following example, where three targets were found in the build file:
 
 ```
 $ panbuild 
@@ -58,7 +57,7 @@ Building target HTML ...Success
 Building target EPUB ...Success
 ```
 
-In the next section of this article, information is provided on how to create a _build.yaml_ file. To tell Panbuild to use another build file different from the default one (_build.yaml_), the '-f' option must be specified, which accepts an argument with the actual name of the actual build file to use.
+Later in this article, you will find information is provided on [how to create a _build.yaml_ file](#syntax-of-build-files). To tell Panbuild to use another build file different from the default one (_build.yaml_), the '-f' option must be specified, which accepts an argument with the actual name of the actual build file to use.
 
 We can also ask Panbuild to build specific targets found on the build file, rather than all of them. We can do that by passing the name of each target in the command line as program arguments separated by a space. For example, to build the "PDF" target only, we should invoke the program as follows:
 
@@ -121,31 +120,35 @@ optional arguments:
 
 ## Documentation
 
+### Introduction 
+
 To understand the motivation behind Panbuild, let us consider an illustrative example. Suppose that we want to create a report consisting of three chapters that we will distribute through a website in various formats. To write that report, we use the Markdown language, which makes it possible to maintain a simple source code for our document, and which can be easily transformed into multiple document formats -such as PDF or HTML- thanks to [Pandoc][pandoc]. Suppose further that the Markdown source code our report has the following features:
 
-* The contents of each chapter in the report is found in a separate Markdown file, thus making maintenance more manageable. Therefore, in building the final document (e.g., PDF) with Pandoc, we must indicate the name of each input file in the command line, in the same order in which the corresponding chapter appears in the report.
+* The content of each chapter in the report is written in a separate Markdown file, thus making maintenance more manageable. Therefore, in building the final document (e.g., PDF) with Pandoc, we must indicate the name of each input file in the command line, in the same order in which the corresponding chapter appears in the report.
 * We expect chapters, sections and subsections to be given a number automatically (e.g., _Chapter 1_, _Section 1.2_, etc.). To make this happen we will invoke Pandoc with the `-N` option.
-* Our report will contain figures and tables that we want to refer to from the document text. So we want both figures and tables to be automatically numbered and to have a certain ID so that we can to refer to them in the text. Because Pandoc's Markdown does not yet feature specific support for figure/table referencing, we will turn to the [`pandoc-crossref`][pandoc_crossref] Pandoc filter. So, in invoking Pandoc we will pass the following option `--filter=pandoc-crossref`.
-* Finally, we want to distribute the document in three formats: PDF -optimized for printing-, HTML -served directly by our site as a standalone page- and EPUB -for a better reading experience on mobile handheld devices-. Moreover, we will tell Pandoc to use a specific CSS stylesheet for the HTML version, and to include a cover image in the EPUB version.   
+* Our report contains figures and tables that we want to refer to from the document text. So we want both figures and tables to be automatically numbered and to have a certain ID so that we can to refer to them in the text. Because Pandoc's Markdown does not yet feature specific support for figure/table referencing, we will turn to the [`pandoc-crossref`][pandoc_crossref] Pandoc filter. As such, in invoking Pandoc we will pass the following option `--filter=pandoc-crossref`.
+* Finally, we want to distribute the document in three different formats: PDF -optimized for printing-, HTML -served directly by our site as a standalone page- and EPUB -for a better reading experience on mobile devices-. Moreover, we will tell Pandoc to use a specific CSS stylesheet for the HTML version, as well as to include a cover image in the EPUB version.   
 
-Provided that the Markdown source for the various chapters is found in the `chapter1.md`,`chapter2.md` and `chapter3.md` files, the Pandoc commands below will generate the PDF, HTML and EPUB versions of the report:
+Provided that the Markdown source for the various chapters is found in the `chapter1.md`,`chapter2.md` and `chapter3.md` files, the Pandoc commands below will generate the PDF, HTML and EPUB versions of the report (we assume pandoc v1.19 here):
 
 ```bash
 # For PDF
-$ pandoc chapter1.md chapter2.md chapter3.md -o report.pdf -N --filter=pandoc-crossref 
+$ pandoc chapter1.md chapter2.md chapter3.md  -o report.pdf -N --filter=pandoc-crossref -M documentclass:report -t latex -s --chapters 
 
 # For HTML
 $ pandoc chapter1.md chapter2.md chapter3.md -o report.html -N --filter=pandoc-crossref -t html -s --css=cool.css
 
 # For EPUB
 $ pandoc chapter1.md chapter2.md chapter3.md -o report.epub -N --filter=pandoc-crossref -t epub --epub-cover-image=cover.png
-```   
+```
 
 To avoid typing these somewhat long commands over and over again to see what a particular final document looks like, we could turn to the [GNU Make tool][make]. A very nice feature of [GNU Make][make] is that it enables the user to define various _targets_, which, in the context of Pandoc, could be used to represent the various final documents we may want to generate from our source document (e.g., Markdown). Unfortunately, getting familiar with the syntax of build files in this tool (called _Makefiles_) takes some time, especially for users that do not typically rely on command-line tools. 
 
-To overcome this issue while still offerring the _target_ abstraction to the user, Panbuild relies on the YAML language to define build files. Notably, many Pandoc users are already familiar with this language, since it allows them to define [Pandoc variables](https://pandoc.org/MANUAL.html#variables-set-by-pandoc) in our document sources via [YAML metadata blocks](https://pandoc.org/MANUAL.html#yaml_metadata_block). This fact coupled with the simplicity of the [syntax of the language](http://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html), makes YAML a suitable choice for the definition of build files.
+To overcome this issue, while still offering the _target_ abstraction to the user, Panbuild relies on the YAML language to define build files. Notably, most Pandoc users are already familiar with this language, since it allows them to define [Pandoc variables](https://pandoc.org/MANUAL.html#variables-set-by-pandoc) in our document sources via [YAML metadata blocks](https://pandoc.org/MANUAL.html#yaml_metadata_block). This fact, coupled with the simplicity of the [language syntax](http://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html), makes YAML a suitable choice for the definition of build files for Panbuild.
 
-Now, Let us go back to our example to describe the syntax of Panbuild's build files. The following sample YAML file defines the necessary targets to build the various final documents that we want to generate from our Markdown code:
+### Syntax of build files  
+
+Now, Let us go back to our example to describe the syntax of Panbuild's build files. The following sample YAML code defines the necessary targets to build the various final documents that we want to generate from our Markdown code:
 
 ```yaml
 pandoc_common:
@@ -155,16 +158,90 @@ pandoc_common:
   - chapter1.md
   - chapter2.md
   - chapter3.md
-  - chapter4.md
 pandoc_targets:
+  PDF:
+    options: -N -o report.pdf -t latex -s -M documentclass:report --chapters
+  HTML:
+    options: -N -o report.html -t html -s --css=cool.css
   EPUB:
-    options: -N --filter=pandoc-crossref -t epub --epub-cover-image=cover.png
+    options: -N -o report.epub -t epub --epub-cover-image=cover.png
 ```
 
+Basically, in defining a build file two mandatory (outer) sections are provided: `pandoc_common` and `pandoc_targets`. The first section defines those features that target commands have in common; in this case it enumerates the list of Pandoc filters (just one in this case) and the various input (source) files that our document is made up of. Panbuild uses this information when generating the actual Pandoc commands for each target. The second section (`pandoc_targets`) defines the set of targets in the build file, where each target has an ID associated to it. In this case, three targets are defined, with IDs `PDF`, `HTML` and `EPUB`, respectively. In turn, the nested section associated with each target must define the `options` property, which specifies the target-specific options passed to the pandoc command. As is evident, in each target, the filters and the input files are not specified in the value of the `options` property, as these are shared among targets and thus are specified in the `pandoc_common` section. We should highlight that in the YAML code the various nested sections are clearly differentiated from one another by introducing two spaces in the margin for each nested level. So, for example, four spaces in a row are required before `options` in the file, because this kind of property is found within the target specific section, and in turn, within `pandoc_target` (top-level). The right indentation is required in the YAML file in order for Panbuild to be able to process the build rules. Due to the flexibility of the syntax of the YAML language, several alternative ways exist to encode the same information (i.e. the properties are defined in the same level and within the right section). Users are strongly encouraged to check out [this article on the YAML syntax](http://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html).
+
+Notably, the ID of each target in the example matches the extension of the output file specified in the options (but in capital letters). Because each target is typically meant to build a file in a different format, this approach to assigning IDs constitutes a good practice. Nevertheless, assigning IDs to the various targets it is totally up to the user; IDs are just arbitrary case-sensitive strings made up exclusively of alphanumeric characters.
+
+To use the YAML code shown above with Panbuild, we may store it in a _build.yaml_ file located exactly in the same directory as our document's sources (Markdown files in this case). In doing so, using the `panbuild` command when in that directory will invoke the commands associated with _all_ the targets defined in the file:
+
+```
+$ ls
+build.yaml	chapter2.md	cool.css
+chapter1.md	chapter3.md	cover.png
+...
+$ panbuild 
+Building target PDF ...Success
+Building target HTML ...Success
+Building target EPUB ...Success
+```
+
+Then, the output files generated by pandoc as a result of running the commands will be available in the current working directory.
+
+```
+$ ls
+build.yaml	chapter2.md	cool.css	report.epub	report.pdf
+chapter1.md	chapter3.md	cover.png	report.html ...
+```
+
+Note that we can easily retrieve the complete Pandoc command for each target by using the `-Lv` option:
+
+```
+$ panbuild -Lv
+PDF: pandoc -s --chapters -t latex -M documentclass:report -N -F pandoc-crossref -o report.pdf chapter1.md chapter2.md chapter3.md
+HTML: pandoc -s -N -t html --css=cool.css -F pandoc-crossref -o report.html chapter1.md chapter2.md chapter3.md
+EPUB: pandoc --epub-cover-image=cover.png -t epub -N -F pandoc-crossref -o report.epub chapter1.md chapter2.md chapter3.md
+```
+
+The value of the `options` property for the various targets shown earlier could be made simpler by leveraging two observations:
+
+1. The `-N` option of Pandoc is used by all targets, and thus specified multiple times in the file
+2. The name of the output files for each targets follows the same pattern: `report.<extension>`, where the extension can be automatically determined by Pandoc thanks to the `-t` and `-s` options (if present).
+
+Based on that, we can use this other alternative build file:
+
+```yaml
+pandoc_common:
+  filters:
+  - pandoc-crossref
+  input_files:
+  - chapter1.md
+  - chapter2.md
+  - chapter3.md
+  output_basename: report
+  options: -N	
+pandoc_targets:
+  PDF:
+    options: -t latex -s -M documentclass:report --chapters
+  HTML:
+    options: -t html -s --css=cool.css
+  EPUB:
+    options: -t epub --epub-cover-image=cover.png
+```
+
+Essentially, the `-N` or the `-o` switches are no longer specified as target-specific options. Instead, two new properties are specified inside the `pandoc_common:` section: `output_basename` -to encode the root of the name for the output file (the extension is added automatically)-, and `options` -to indicate those options that will be applied for _all_ targets-.   
+
+
+<!-- PERHAPS ADD HERE SOMETHING ON THIS:
+	* Alternative syntax by using options and YAML, Multiple options as a list ...
+	* Info on variables, metadata and preamble.
+-->
+
+
+Finally, we should highlight that the contents of the build file, which we have stored so far in a separate `build.yaml` file (for the sake of simplicity), can be also embedded in an input file of the source document by using Pandoc's YAML header. More generally, such a header could define both the `pandoc_common` and `pandoc_targets` properties required for Panbuild, as well as any other Pandoc variables to control the style or any other features of the final document as explained in Pandoc's user manual. In case Panbuild's build rules are included in one of the source files, the path of this file should be passed to `panbuild` as an argument of the `-f` option.   
+.
 
 ## Support
 
-TODO
+If you experience any difficulties while using Panbuild, please do not hesitate to [open an issue](https://github.com/jcsaezal/panbuild/issues) on github so that we can help.
 
 
 
@@ -172,5 +249,5 @@ TODO
 [Windows]: https://www.python.org/downloads/windows/
 [PyPI]: https://pypi.python.org/pypi
 [pandoc]: http://pandoc.org/
-[pandoc_crossref]: https://github.com/lierdakil/pandoc-crossref 
+[pandoc_crossref]: https://github.com/lierdakil/pandoc-crossref
 [make]: https://www.gnu.org/software/make/

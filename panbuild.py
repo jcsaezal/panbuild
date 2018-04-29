@@ -422,7 +422,7 @@ def parse_target(data,name,parent,level,dual_dict):
 		elif option== "output_basename":
 			## Override output_basename
 			if type(value) == str:
-				output_basename={"common":output_basename_raw}
+				output_basename=value ##Perhaps consider special treatment
 			elif type(value) == dict:
 				output_basename=value
 			else:
