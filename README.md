@@ -6,15 +6,24 @@ Panbuild relies on YAML code -typically included in a separate _build_ file- to 
 
 ## Installation
 
-Apart from installing [`pandoc`][pandoc], using the latest version of `panbuild` requires [Python], a programming language whose interpreter comes pre-installed on Linux and Mac OS X, and which can be easily installed on [Windows]. Panbuild works with both Python v2.7 and v3.x.
+To use Panbuild, you must install [Pandoc][pandoc] on your system. It is also highly recommended to update your PATH to include the directory where pandoc's binaries were installed (Pandoc's installer typically takes care of that).
+
+
+### Binary installation (Windows and Mac OS X only)
+
+In the Panbuild's [download page](https://github.com/jcsaezal/panbuild/releases/latest) you can find a ZIP file containing executable files for Windows and Mac OS X. For the installation, just extract the `panbuild` executable file from the ZIP archive and place it in any directory included in the PATH (e.g. the directory where `pandoc.exe` or the `pandoc` executable was installed on your system). 
+
+### Installation from source
+
+Installing `panbuild` from source requires [Python], a programming language whose interpreter comes pre-installed on Linux and Mac OS X, and which can be easily installed on [Windows]. Panbuild works with both Python v2.7 and v3.x.
 
 The installation also requires `pip`, a program that downloads and installs modules from the Python Package Index ([PyPI]) or from a specified URL. On Mac OS X, it typically comes installed with your Python distribution. On Windows, make sure you choose to install `pip` during the installation of Python (latest Python installers provide such an option). On a Debian-based system (including Ubuntu), you can install `pip` (as root) as follows:
 
 	apt-get install python-pip
 
-There are basically two ways to install Panbuild: with and without `git`.
+There are basically two ways to install Panbuild from source: with and without `git`.
 
-### Git-based installation 
+#### Git-based installation 
 
 This approach is straightforward and perhaps more suitable for Linux and Mac OS X, where the `git` command can be easily installed. In following this approach you can install `panbuild` by using the following command as root:
 
@@ -24,24 +33,21 @@ To upgrade to the most recent release, proceed as follows:
 
     pip install --upgrade git+https://github.com/jcsaezal/panbuild
 
-### Installation without `git` 
+#### Installation without `git` 
 
 If the one-command installation shown above does not work (i.e. `git` is not installed on your system) you can follow this two-step process:
 
 1. Download a copy of the repository in [ZIP format](https://github.com/jcsaezal/SublimeText-Panbuild/archive/master.zip) and extract it in a _temporary_ folder on your computer.
 
 2. Then install `panbuild` on your system by running `pip` as follows:
+  ```
+  pip install <full_path_of_your_temporary_folder>
+  ```
 
-		pip install <full_path_of_your_temporary_folder>
 
-
-### Note on a binary release
-
-In future releases we plan to provide a binary version of `panbuild` for Windows (EXE file) to remove dependencies from Python and `pip`. The installation of such a binary version would be then as simple as placing the executable file in any directory included in the PATH (e.g. the directory where the `pandoc.exe` file was installed on your system).  
-    
 ## Usage
 
-When running the `panbuild` command without arguments it will try to open a _build.yaml_ file located on the current working directory. If the _build file_ was not found, an error message will be displayed:
+The `panbuild` command must be executed from the directory that contains the source code of your document (e.g. collection of Markdown files). When running `panbuild` without arguments it will try to open a _build.yaml_ file located on the current working directory. If the _build file_ was not found, an error message will be displayed:
 
 ```
 $ panbuild
@@ -66,7 +72,7 @@ $ panbuild PDF
 Building target PDF ...Success
 ```
 
-Note also that Panbuild recognizes an implicit target `clean` (not defined in the build file) which will delete the files associated with each target:
+Note also that Panbuild recognizes an implicit `clean` target (not defined in the build file) which will delete the files associated with each target:
 
 ```
 $ panbuild clean
@@ -259,9 +265,9 @@ Finally, we should highlight that the contents of the build file, which we have 
 
 Panbuild has been designed from the ground up as a tool for creating Pandoc frontends using extensible text editors (i.e. those that support plugins/addons). Today, several Pandoc frontends exist, such as the [Typora Markdown Editor](https://typora.io/) or the [Pandoc plugin for Sublime Text](https://packagecontrol.io/packages/Pandoc). Unfortunately, at the time of this writing none of these solutions allow the user to access the full Pandoc's functionality from the GUI. In particular, in these environments the user cannot control what options are passed to Pandoc; instead a set of predefined output profiles are available to the user, which cannot be fully customized with specific pandoc options. In addition, documents divided into multiple source files (such as the example discussed earlier) are simply not supported: Pandoc can be only invoked with one input file from these editors. Under these circumstances, users often have to turn to the command line to invoke Pandoc commands directly.
 
-Despite the fact that Panbuild is a command-line tool, it features several options to allow the creation of Pandoc plugins for extensible text editors. As a proof of concept, we created a [Panbuild's plugin for Sublime Text](https://github.com/jcsaezal/SublimeText-Panbuild), which illustrates the role of `panbuild` in the creation of a graphical frontend  for Pandoc, enabling full access to its entire functionality without using the command line. 
+Despite the fact that Panbuild is a command-line tool, it features several options to allow the creation of Pandoc plugins for extensible text editors. As a proof of concept, we created a [Panbuild's plugin for Sublime Text](https://github.com/jcsaezal/SublimeText-Panbuild), which illustrates the role of `panbuild` in the creation of a graphical frontend for Pandoc, enabling full access to its entire functionality without using the command line. 
 
-The plugin relies on the following _panbuild_ options:
+The plugin relies on the following key options of `panbuild`:
 
 * `-L`: displays the list of targets (IDs only) found in the build file 
 * `-o`: displays the set of output files (argument of Pandoc's `-o` switch) for each target. 
