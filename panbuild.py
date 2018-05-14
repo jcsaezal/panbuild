@@ -131,7 +131,7 @@ class Target:
 		return "=====%s====\nName=%s\nOptions=%s\nFilters=%s\nVariables=%s\nInput files=%s\n==========\n" % (self.name,self.subname,str(self.options),str(self.filters),str(self.variables),str(self.input_files))
 
 	
-	def build_command(self,add_dual_filters=False,dual_filters_dir=None,pandoc_dir=None):
+	def build_command(self,add_dual_filters=False,dual_filters_dir=None,pandoc_exec=None):
 		actual_output_file=None
 		actual_extension=None
 		output_table_standalone={"latex":"pdf","beamer":"pdf","plain":"txt"}
@@ -145,8 +145,8 @@ class Target:
 		cmd=[]
 
 		## First arg	
-		if pandoc_dir:
-			cmd.append(os.path.join(pandoc_dir,"pandoc"))
+		if pandoc_exec:
+			cmd.append(pandoc_exec)
 		else:
 			cmd.append("pandoc")
 
@@ -552,7 +552,7 @@ def parse_yaml_header(filename):
 		
 		return (data,False)		
 
-def parse_file(infile,pandoc_dir):
+def parse_file(infile,pandoc_exec):
 	dual=False
 	lang_dict=None
 	dual_filter_dir=None
@@ -619,7 +619,7 @@ def parse_file(infile,pandoc_dir):
 
 	## Update commands
 	for target in targets:
-		if not target.build_command(dual,dual_filter_dir,pandoc_dir):
+		if not target.build_command(dual,dual_filter_dir,pandoc_exec):
 			return None
 
 	return (data,targets)
@@ -774,7 +774,7 @@ def main():
 	parser.add_argument("-L","--list-targets",action='store_true',help="List targets found in build file")
 	parser.add_argument("-o","--list-output",action='store_true',help="List the name of the output file for each target")
 	parser.add_argument("-v","--verbose",action='store_true',help="Enable verbose mode")
-	parser.add_argument("-d","--pandoc-dir",help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
+	parser.add_argument("-e","--pandoc-exe",help="Used to point to pandoc executable. It will be used instead of the pandoc command in the PATH")
 	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
 	parser.add_argument("-y","--use-yaml-options",action='store_true',help="Show options in YAML format when generating sample build file")	
 	parser.add_argument("-a","--append-target",help="Add a new target (with options passed as a parameters) to a existing build file. Note: input files will be ignored when including options")	
@@ -791,7 +791,7 @@ def main():
 			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file,args.targets[0],dual=args.dual_mode)
 		sys.exit(0)
 
-	ret=parse_file(args.build_file,args.pandoc_dir)
+	ret=parse_file(args.build_file,args.pandoc_exe)
 
 	if not ret:
 		sys.exit(2)
