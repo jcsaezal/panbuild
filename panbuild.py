@@ -257,8 +257,12 @@ class Target:
 				self.outfile=filename
 				cmd.append(filename)
 			else:
-				print("Error: no output file has been specified for target %s" % self.subname, file=sys.stderr)
-				return None
+				cmd.append("-o")
+				filename="output.%s" % actual_extension
+				self.outfile=filename
+				cmd.append(filename)
+				#print("Error: no output file has been specified for target %s" % self.subname, file=sys.stderr)
+				#return None
 
 
 		## Add input files
@@ -672,7 +676,7 @@ def make_list(obj):
 	else:
 		return obj	
 
-def print_sample_build_yaml(args_str,options_in_yaml=False,build_yaml_file=None,target_name=None):
+def print_sample_build_yaml(args_str,options_in_yaml=False,build_yaml_file=None,target_name=None,dual=False):
 	(input_files,options)=parse_pandoc_options(args_str)
 	yaml_dict={}
 	pandoc_common={}
@@ -726,6 +730,9 @@ def print_sample_build_yaml(args_str,options_in_yaml=False,build_yaml_file=None,
 
 			option_dict[option]=value
 
+	if dual:
+		yaml_dict['dual']=True
+
 	## Dump to file (watch out, it overwrites the file!!)
 	if build_yaml_file:
 		stream = file(build_yaml_file, 'w')
@@ -771,6 +778,7 @@ def main():
 	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
 	parser.add_argument("-y","--use-yaml-options",action='store_true',help="Show options in YAML format when generating sample build file")	
 	parser.add_argument("-a","--append-target",help="Add a new target (with options passed as a parameters) to a existing build file. Note: input files will be ignored when including options")	
+	parser.add_argument("-D","--dual-mode",action='store_true',help="Dual markdown mode")
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
 
@@ -778,9 +786,9 @@ def main():
 	## Generate sample
 	if args.sample_build_file:
 		if len(args.targets)==0:
-			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file)
+			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file,dual=args.dual_mode)
 		else:
-			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file,args.targets[0])
+			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file,args.targets[0],dual=args.dual_mode)
 		sys.exit(0)
 
 	ret=parse_file(args.build_file,args.pandoc_dir)
