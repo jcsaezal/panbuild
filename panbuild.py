@@ -624,6 +624,47 @@ def parse_file(infile,pandoc_exec):
 
 	return (data,targets)
 
+def remove_target_from_build_file(build_yaml_file,target_name,yaml_data,targets):
+	#Make sure its a yaml file
+	basename, file_extension = os.path.splitext(build_yaml_file)	
+
+	if not file_extension in  [".yml",".yaml"]:
+		print("Removing targets is not supported on non-YAML files", file=sys.stderr)
+		sys.exit(3)
+
+	## Get keys using portable code for Python 2.7 and 3.x
+	keys=[]
+	for key, value in iter(yaml_data["pandoc_targets"].items()):
+		keys.append(key)	
+
+	## Determine if dual mode
+	dual_mode=("dual" in yaml_data and yaml_data["dual"])
+
+	if dual_mode:
+		##Normalize  target
+		idx_slash=target_name.find('/')
+
+		if idx_slash==-1:
+			target_root=target_name
+		else:
+			target_root=target_name[0:idx_slash]
+
+		## Remove root 
+		if target_root in keys:
+			del yaml_data["pandoc_targets"][target_root]
+		else:
+			print("Target %s/XX not found in build file" % target_root, file=sys.stderr)
+			sys.exit(3)					
+	else:
+		if target_name in keys:
+			del yaml_data["pandoc_targets"][target_name]
+		else:
+			print("Target %s not found in build file" % target_name, file=sys.stderr)
+			sys.exit(3)				
+	
+	##Update changes on build file
+	stream = file(build_yaml_file, 'w')
+	yaml.dump(yaml_data,stream,default_flow_style=False)
 
 def append_target_to_build_file(build_yaml_file,target_name,str_options,yaml_data,existing_targets):
 	#Make sure its a yaml file
@@ -778,6 +819,7 @@ def main():
 	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
 	parser.add_argument("-y","--use-yaml-options",action='store_true',help="Show options in YAML format when generating sample build file")	
 	parser.add_argument("-a","--append-target",help="Add a new target (with options passed as a parameters) to a existing build file. Note: input files will be ignored when including options")	
+	parser.add_argument("-r","--remove-target",help="Remove target from existing build file.")		
 	parser.add_argument("-D","--dual-mode",action='store_true',help="Dual markdown mode")
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
@@ -813,6 +855,11 @@ def main():
 		append_target_to_build_file(args.build_file,target_name,args.append_target,yaml_data,targets)
 		sys.exit(0)
 
+	##Process remove target
+	if args.remove_target:
+		remove_target_from_build_file(args.build_file,args.remove_target,yaml_data,targets)
+		sys.exit(0)
+		
 	## Print targets
 	if args.list_targets or args.list_output:
 		for target in targets:
