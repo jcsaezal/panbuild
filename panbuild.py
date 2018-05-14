@@ -620,13 +620,59 @@ def parse_file(infile,pandoc_dir):
 
 	return (data,targets)
 
+
+def append_target_to_build_file(build_yaml_file,target_name,str_options,yaml_data,existing_targets):
+	#Make sure its a yaml file
+	basename, file_extension = os.path.splitext(build_yaml_file)
+
+	if not file_extension in  [".yml",".yaml"]:
+		print("Adding new targets is not supported on non-YAML files", file=sys.stderr)
+		sys.exit(3)
+
+	(input_files,options)=parse_pandoc_options(str_options)
+	idx_opt=str_options.find('-')
+	option_dict={"options":str_options[idx_opt:]}
+
+	## Find another name for target in case it is already taken
+	
+	## Get keys using portable code for Python 2.7 and 3.x
+	keys=[]
+	for key, value in iter(yaml_data["pandoc_targets"].items()):
+		keys.append(key)
+
+	## Assign number
+	if target_name in keys:
+		## Find the maximum number
+		reg_str="^%s[0-9]+$" % target_name 
+		nr_items=len(target_name)
+		r = re.compile(reg_str)
+		n=-1
+		for key in keys:
+			if r.match(key):
+				# Get number and transform
+				num=key[nr_items:]
+				if num>n:
+					n=num
+		## Select new name
+		if n==-1:
+			n=1
+		target_name="%s%d" % (target_name,n)
+
+	## Add target to YAML
+	yaml_data["pandoc_targets"][target_name]=option_dict
+
+
+	stream = file(build_yaml_file, 'w')
+	yaml.dump(yaml_data,stream,default_flow_style=False)
+
+
 def make_list(obj):
 	if type(obj) is str:
 		return [obj]
 	else:
 		return obj	
 
-def print_sample_build_yaml(args_str,options_in_yaml=False):
+def print_sample_build_yaml(args_str,options_in_yaml=False,build_yaml_file=None,target_name=None):
 	(input_files,options)=parse_pandoc_options(args_str)
 	yaml_dict={}
 	pandoc_common={}
@@ -664,13 +710,15 @@ def print_sample_build_yaml(args_str,options_in_yaml=False):
 		print("Error: Multiple targets found in pandoc command: ",target, file=sys.stderr)
 		sys.exit(2)
 
+	if not target_name:
+		target_name=target.upper()
 
 	if not options_in_yaml:
 		#find first "-" in option string
-		yaml_dict['pandoc_targets']={target.upper():{"options":args_str[idx_opt:]}}
+		yaml_dict['pandoc_targets']={target_name:{"options":args_str[idx_opt:]}}
 	else:
 		option_dict={}
-		yaml_dict['pandoc_targets']={target.upper():{"options":option_dict}}
+		yaml_dict['pandoc_targets']={target_name:{"options":option_dict}}
 
 		for option, value in iter(options.items()):  
 			if option in skip_list:
@@ -678,7 +726,12 @@ def print_sample_build_yaml(args_str,options_in_yaml=False):
 
 			option_dict[option]=value
 
-	print(yaml.dump(yaml_dict,default_flow_style=False),end="")
+	## Dump to file (watch out, it overwrites the file!!)
+	if build_yaml_file:
+		stream = file(build_yaml_file, 'w')
+		yaml.dump(yaml_dict,stream,default_flow_style=False)
+	else:
+		print(yaml.dump(yaml_dict,default_flow_style=False),end="")
 
 
 def run_pandoc(cmd,ignoreErrors=False,verbose=False):
@@ -717,13 +770,17 @@ def main():
 	parser.add_argument("-d","--pandoc-dir",help="Used to point to pandoc executable's directory, in the event it is not in the PATH")
 	parser.add_argument("-S","--sample-build-file",help="Print a sample build file for the pandoc options passed as a parameter. Format PANDOC_OPTIONS ::= '[list-input-files] REST_OF_OPTIONS' ", metavar="PANDOC_OPTIONS")	
 	parser.add_argument("-y","--use-yaml-options",action='store_true',help="Show options in YAML format when generating sample build file")	
+	parser.add_argument("-a","--append-target",help="Add a new target (with options passed as a parameters) to a existing build file. Note: input files will be ignored when including options")	
 	parser.add_argument('targets', metavar='TARGETS',nargs='*', help='a target name (must be defined in the build file)')	
 	args=parser.parse_args(sys.argv[1:])
 
 
 	## Generate sample
 	if args.sample_build_file:
-		print_sample_build_yaml(args.sample_build_file,args.use_yaml_options)
+		if len(args.targets)==0:
+			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file)
+		else:
+			print_sample_build_yaml(args.sample_build_file,args.use_yaml_options,args.build_file,args.targets[0])
 		sys.exit(0)
 
 	ret=parse_file(args.build_file,args.pandoc_dir)
@@ -733,6 +790,20 @@ def main():
 
 	##Match argument
 	(yaml_data,targets)=ret
+
+	## Process the append target option
+	if args.append_target:
+
+		## Make sure a target name has been specified
+		if len(args.targets)==0:
+			print("Please specify a target name in the command line (e.g., last argument)", file=sys.stderr)
+			sys.exit(3)
+
+
+		## Go ahead and modify file
+		target_name=args.targets[0]
+		append_target_to_build_file(args.build_file,target_name,args.append_target,yaml_data,targets)
+		sys.exit(0)
 
 	## Print targets
 	if args.list_targets or args.list_output:
