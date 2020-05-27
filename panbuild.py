@@ -528,7 +528,7 @@ def parse_yaml_header(filename):
 
 	try:
 		## Read YAML
-		yaml_data=yaml.load(document)	
+		yaml_data=yaml.safe_load(document)	
 	except Exception as inst:
 		print("Error parsing YAML header in file", filename, file=sys.stderr)
 		print(inst)
@@ -544,7 +544,7 @@ def parse_yaml_header(filename):
 
 		try:
 			stream=io.open(infile,'r')
-			data=yaml.load(stream)
+			data=yaml.safe_load(stream)
 			del stream
 		except Exception as inst:
 			print(inst)
@@ -569,7 +569,7 @@ def parse_file(infile,pandoc_exec):
 	else:
 		try:
 			stream=io.open(infile,'r')
-			data=yaml.load(stream)
+			data=yaml.safe_load(stream)
 			del stream
 		except Exception as inst:
 			print(inst)
@@ -889,12 +889,16 @@ def main():
 		selected_targets=targets
 	else:
 		for target_name in args.targets:
-			res=filter(lambda x: x.subname == target_name, targets)	
-			if not res or res==[]:
-				print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
-				sys.exit(3)
-			else:
-				selected_targets.append(res[0])
+                        res=filter(lambda x: x.subname == target_name, targets)
+                        if not res or res==[]:
+                            print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
+                            sys.exit(3)
+                        else:
+                            try:
+                                selected_targets.append(res[0])
+                            except:
+                                res=list(filter(lambda x: x.subname == target_name, targets))
+                                selected_targets.append(res[0])
 
 	## Invoke pandoc for selected targets
 	for target in selected_targets:
