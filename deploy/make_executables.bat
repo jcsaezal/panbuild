@@ -43,7 +43,7 @@ echo "Package file %package_locdir%\%%p.py does not exist"
 
 mkdir %base_tmpdir%\%%p
 cd %base_tmpdir%/%%p
-pyinstaller --onefile --noconsole "..\..\%package_locdir%/%%p.py" 1> ..\%%p.log 2>&1
+pyinstaller --onefile "..\..\%package_locdir%/%%p.py" 1> ..\%%p.log 2>&1
 
 if errorlevel 1 (
 	cd ..\..

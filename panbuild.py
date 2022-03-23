@@ -89,7 +89,7 @@ def merge_two_dicts(x, y):
     return z
 
 class Target:
-	def __init__(self,name,parent,variables,metadata,options,filters,preamble,input_files,output_basename):
+	def __init__(self,name,parent,variables,metadata,options,filters,preamble,input_files,output_basename,custom_command=None):
 		self.name=name
 		self.parent=parent
 		self.outfile=None ## Established later when building command
@@ -125,18 +125,29 @@ class Target:
 			self.options=options.copy() if options else {}
 			self.filters=list(filters) if filters else []
 
+		self.custom_command=custom_command
+
 		self.pandoc_command=None ## For now it is left uninitialized
 
 	def __str__(self):
 		return "=====%s====\nName=%s\nOptions=%s\nFilters=%s\nVariables=%s\nInput files=%s\n==========\n" % (self.name,self.subname,str(self.options),str(self.filters),str(self.variables),str(self.input_files))
 
-	
+	def build_custom_command(self):
+		execname,args=self.custom_command
+		cmd=[execname]
+		cmd.extend(args.split(','))
+		self.pandoc_command=cmd
+		return cmd
+
 	def build_command(self,add_dual_filters=False,dual_filters_dir=None,pandoc_exec=None):
 		actual_output_file=None
 		actual_extension=None
 		output_table_standalone={"latex":"pdf","beamer":"pdf","plain":"txt"}
 		output_table_regular={"latex":"tex","beamer":"tex","plain":"txt"}
 		standalone=False
+
+		if self.custom_command is not None:
+			return self.build_custom_command()
 
 		if not self.input_files or len(self.input_files)==0:
 			print("Error: no input files have been specified for target %s" % self.subname, file=sys.stderr,end='')
@@ -373,6 +384,9 @@ def parse_target(data,name,parent,level,dual_dict):
 		output_basename=None ## For error checking later		
 		preamble=[]
 
+	execname=None
+	args=""
+
 	## Process options within the target
 	for option, value in iter(data.items()):
 		if option=="options":
@@ -432,6 +446,20 @@ def parse_target(data,name,parent,level,dual_dict):
 			else:
 				print("Warning: Illegal format for output_basename in target %s ...: " % actual_name, file=sys.stderr)	
 				output_basename=None
+		elif option== "execname":
+			## Override output_basename
+			if type(value) == str:
+				execname=value 
+			else:
+				print("Warning: Illegal format for execname in target %s ...: " % actual_name, file=sys.stderr)	
+				execname=None
+		elif option== "args":
+			## Override output_basename
+			if type(value) == str:
+				args=value 
+			else:
+				print("Warning: Illegal format for args in target %s ...: " % actual_name, file=sys.stderr)	
+				args=None				
 		else:
 			### TODO:
 			## perhaps force writting targets with an initial capital letter to
@@ -450,7 +478,11 @@ def parse_target(data,name,parent,level,dual_dict):
 	else:
 		actual_parent=parent
 
-	target=Target(name,actual_parent,variables,metadata,options,filters,preamble,input_files,output_basename)
+	if execname is not None:
+		custom_command=(execname,args)
+	else:
+		custom_command=None
+	target=Target(name,actual_parent,variables,metadata,options,filters,preamble,input_files,output_basename,custom_command)
 
 	## Hack to add dual targets automatically or patch them when in dual mode
 	if dual_dict and level==1 and name!="common":
@@ -787,12 +819,15 @@ def run_pandoc(cmd,ignoreErrors=False,verbose=False):
     Low level function to invoke Pandoc 
     """
     pandoc_path = cmd[0]
+    custom_command= False
     text=''
 
     if pandoc_path=="pandoc":
     	pandoc_path=which(pandoc_path)
+    else:
+    	custom_command=True
 
-    if pandoc_path is None or not os.path.exists(pandoc_path):
+    if not custom_command and (pandoc_path is None or not os.path.exists(pandoc_path)):
         raise OSError("Path to pandoc executable does not exist")
 
     if verbose:
