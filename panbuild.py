@@ -133,9 +133,7 @@ class Target:
 		return "=====%s====\nName=%s\nOptions=%s\nFilters=%s\nVariables=%s\nInput files=%s\n==========\n" % (self.name,self.subname,str(self.options),str(self.filters),str(self.variables),str(self.input_files))
 
 	def build_custom_command(self):
-		execname,args=self.custom_command
-		cmd=[execname]
-		cmd.extend(args.split(','))
+		cmd=self.custom_command.split()
 		self.pandoc_command=cmd
 		return cmd
 
@@ -384,8 +382,7 @@ def parse_target(data,name,parent,level,dual_dict):
 		output_basename=None ## For error checking later		
 		preamble=[]
 
-	execname=None
-	args=""
+	custom_cmd=None
 
 	## Process options within the target
 	for option, value in iter(data.items()):
@@ -446,20 +443,13 @@ def parse_target(data,name,parent,level,dual_dict):
 			else:
 				print("Warning: Illegal format for output_basename in target %s ...: " % actual_name, file=sys.stderr)	
 				output_basename=None
-		elif option== "execname":
+		elif option== "custom_cmd":
 			## Override output_basename
 			if type(value) == str:
-				execname=value 
+				custom_cmd=value 
 			else:
-				print("Warning: Illegal format for execname in target %s ...: " % actual_name, file=sys.stderr)	
-				execname=None
-		elif option== "args":
-			## Override output_basename
-			if type(value) == str:
-				args=value 
-			else:
-				print("Warning: Illegal format for args in target %s ...: " % actual_name, file=sys.stderr)	
-				args=None				
+				print("Warning: Illegal format for custom_cmd in target %s ...: " % actual_name, file=sys.stderr)	
+				custom_cmd=None			
 		else:
 			### TODO:
 			## perhaps force writting targets with an initial capital letter to
@@ -478,11 +468,7 @@ def parse_target(data,name,parent,level,dual_dict):
 	else:
 		actual_parent=parent
 
-	if execname is not None:
-		custom_command=(execname,args)
-	else:
-		custom_command=None
-	target=Target(name,actual_parent,variables,metadata,options,filters,preamble,input_files,output_basename,custom_command)
+	target=Target(name,actual_parent,variables,metadata,options,filters,preamble,input_files,output_basename,custom_cmd)
 
 	## Hack to add dual targets automatically or patch them when in dual mode
 	if dual_dict and level==1 and name!="common":
