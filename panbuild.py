@@ -528,7 +528,7 @@ def parse_yaml_header(filename):
 
 	try:
 		## Read YAML
-		yaml_data=yaml.load(document)	
+		yaml_data=yaml.load(document,Loader=yaml.FullLoader)	
 	except Exception as inst:
 		print("Error parsing YAML header in file", filename, file=sys.stderr)
 		print(inst)
@@ -544,7 +544,7 @@ def parse_yaml_header(filename):
 
 		try:
 			stream=io.open(infile,'r')
-			data=yaml.load(stream)
+			data=yaml.load(stream,Loader=yaml.FullLoader)
 			del stream
 		except Exception as inst:
 			print(inst)
@@ -569,7 +569,7 @@ def parse_file(infile,pandoc_exec):
 	else:
 		try:
 			stream=io.open(infile,'r')
-			data=yaml.load(stream)
+			data=yaml.load(stream,Loader=yaml.FullLoader)
 			del stream
 		except Exception as inst:
 			print(inst)
