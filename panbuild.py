@@ -884,8 +884,12 @@ def main():
 	## Print targets
 	if args.list_targets or args.list_output:
 		for target in targets:
+			for i,item in enumerate(target.pandoc_command):
+				if type(item) not in [unicode,str]:
+					print(item,type(item))
+					target.pandoc_command[i]=str(item)
 			if args.verbose:
-				print(target.subname+": "+' '.join(map(str,target.pandoc_command)))
+				print(target.subname+": "+' '.join(target.pandoc_command))
 			elif args.list_output:
 				print(target.subname+": "+target.outfile)
 			else:
