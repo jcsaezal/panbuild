@@ -914,7 +914,7 @@ def main():
 		selected_targets=targets
 	else:
 		for target_name in args.targets:
-			res=filter(lambda x: x.subname == target_name, targets)	
+			res=list(filter(lambda x: x.subname == target_name, targets))	
 			if not res or res==[]:
 				print("Target '%s' does not exist in build file" % target_name, file=sys.stderr)
 				sys.exit(3)
